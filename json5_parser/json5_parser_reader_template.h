@@ -11,6 +11,7 @@
 #endif
 
 #include <boost/algorithm/string.hpp>
+#include <iterator>
 #include <string>
 
 #include "json5_parser_error_position.h"
@@ -139,28 +140,36 @@ template <class String_type>
 String_type substitute_esc_chars(typename String_type::const_iterator begin,
                                  typename String_type::const_iterator end) {
     typedef typename String_type::const_iterator Iter_type;
-
-    if (end - begin < 2) return String_type(begin, end);
-
     String_type result;
 
-    result.reserve(end - begin);
+    if (begin == end) return result;
 
-    const Iter_type end_minus_1(end - 1);
+    result.reserve(static_cast<typename String_type::size_type>(std::distance(begin, end)));
 
     Iter_type substr_start = begin;
     Iter_type i = begin;
 
-    for (; i < end_minus_1; ++i) {
-        if (*i == '\\') {
-            result.append(substr_start, i);
-
-            ++i;  // skip the '\'
-
-            append_esc_char_and_incr_iter(result, i, end);
-
-            substr_start = i + 1;
+    while (i != end) {
+        if (*i != '\\') {
+            ++i;
+            continue;
         }
+
+        result.append(substr_start, i);
+
+        ++i;  // skip the '\\'
+
+        // Preserve a trailing backslash literally.
+        if (i == end) {
+            result += '\\';
+            substr_start = end;
+            break;
+        }
+
+        append_esc_char_and_incr_iter(result, i, end);
+
+        ++i;
+        substr_start = i;
     }
 
     result.append(substr_start, end);
